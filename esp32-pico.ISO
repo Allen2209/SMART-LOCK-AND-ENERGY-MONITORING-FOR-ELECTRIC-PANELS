@@ -1,0 +1,101 @@
+#include <PZEM004Tv30.h>
+
+// =========================
+// PZEM CONNECTION
+// =========================
+#define PZEM_RX 16
+#define PZEM_TX 17
+
+PZEM004Tv30 pzem(Serial2, PZEM_RX, PZEM_TX);
+
+// =========================
+// UART TO PICO
+// =========================
+// Serial (USB)  -> Debug Monitor
+// Serial1 (TX=4, RX=5) -> Pico UART
+#define PICO_TX 4
+#define PICO_RX 5
+
+void setup() {
+
+  Serial.begin(115200);
+
+  Serial1.begin(115200, SERIAL_8N1, PICO_RX, PICO_TX);
+
+  Serial2.begin(9600, SERIAL_8N1, PZEM_RX, PZEM_TX);
+
+  Serial.println();
+  Serial.println("=================================");
+  Serial.println(" Smart Electrical Panel Monitor");
+  Serial.println(" ESP32 + PZEM004T");
+  Serial.println("=================================");
+}
+
+void loop() {
+
+  float voltage = pzem.voltage();
+  float current = pzem.current();
+  float power   = pzem.power();
+  float energy  = pzem.energy();
+
+  // Replace invalid values with 0
+  if (isnan(voltage)) voltage = 0;
+  if (isnan(current)) current = 0;
+  if (isnan(power))   power = 0;
+  if (isnan(energy))  energy = 0;
+
+  // -------------------------
+  // Fault Detection
+  // -------------------------
+  int fault = 0;
+
+  if (voltage < 180 || voltage > 260)
+      fault = 1;
+
+  if (current > 10.0)
+      fault = 1;
+
+  // -------------------------
+  // Debug Monitor
+  // -------------------------
+  Serial.println("------------");
+  Serial.print("Voltage : ");
+  Serial.print(voltage);
+  Serial.println(" V");
+
+  Serial.print("Current : ");
+  Serial.print(current);
+  Serial.println(" A");
+
+  Serial.print("Power   : ");
+  Serial.print(power);
+  Serial.println(" W");
+
+  Serial.print("Energy  : ");
+  Serial.print(energy);
+  Serial.println(" kWh");
+
+  Serial.print("Fault   : ");
+  Serial.println(fault ? "YES" : "NO");
+
+  // -------------------------
+  // Send to Pico
+  // Format:
+  // V,C,P,E,FAULT
+  // -------------------------
+  Serial1.print(voltage, 1);
+  Serial1.print(",");
+
+  Serial1.print(current, 2);
+  Serial1.print(",");
+
+  Serial1.print(power, 1);
+  Serial1.print(",");
+
+  Serial1.print(energy, 3);
+  Serial1.print(",");
+
+  Serial1.println(fault);
+
+  delay(1000);
+}
